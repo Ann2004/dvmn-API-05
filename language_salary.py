@@ -5,6 +5,11 @@ import math
 from terminaltables import AsciiTable
 
 
+MOSCOW_ID_HH = 1
+MOSCOW_ID_SJ = 4
+PROGRAMMING_CATALOG_ID_SJ = 48
+
+
 def predict_salary(salary_from, salary_to):
     if not salary_from and not salary_to:
         expected_salary = None
@@ -38,15 +43,15 @@ def predict_rub_salary_sj(vacancy):
     return expected_salary
 
 
-def create_statistics_table(dict, title):
+def create_statistics_table(salary_statistics, title):
     table_data = []
     table_data.append(['Язык программирования', 'Вакансий найдено ', 'Вакансий обработано ', 'Средняя зарплата'])
-    for key in dict:
+    for language in salary_statistics:
         raw = [
-            key, 
-            dict[key]['vacancies_found'], 
-            dict[key]['vacancies_processed'],
-            dict[key]['average_salary']
+            language, 
+            salary_statistics[language]['vacancies_found'], 
+            salary_statistics[language]['vacancies_processed'],
+            salary_statistics[language]['average_salary']
         ]
         table_data.append(raw)
 
@@ -71,7 +76,7 @@ def get_average_salary_hh(access_token, programming_languages):
         while page < pages_number:
             payload = {
                 'text': f'программист {lang}', 
-                'area': '1', 
+                'area': MOSCOW_ID_HH, 
                 'page': page
             }
             
@@ -80,30 +85,26 @@ def get_average_salary_hh(access_token, programming_languages):
             
             page_payload = page_response.json()  
                 
-            vacancies.append(page_payload['items'])
+            vacancies.extend(page_payload['items'])
             pages_number = page_payload['pages']
             page += 1
         
-        salary_statistics[lang] = {
-            'vacancies_found': page_response.json()['found'],
-            'vacancies_processed': 0,
-            'average_salary': 0
-        }
-        
         processed_vacancies = 0
         salary_sum = 0
-        for vacancies_per_page in vacancies:
-            for vacancy in vacancies_per_page:
-                predicted_salary = predict_rub_salary_hh(vacancy)
-                
-                if predicted_salary:
-                    salary_sum += predicted_salary
-                    processed_vacancies += 1
+        for vacancy in vacancies:
+            predicted_salary = predict_rub_salary_hh(vacancy)
+            
+            if predicted_salary:
+                salary_sum += predicted_salary
+                processed_vacancies += 1
                     
-        average_salary = int(salary_sum / processed_vacancies) if processed_vacancies > 0 else 0
-          
-        salary_statistics[lang]['vacancies_processed'] = processed_vacancies
-        salary_statistics[lang]['average_salary'] = average_salary
+        average_salary = int(salary_sum / processed_vacancies) if processed_vacancies else 0
+        
+        salary_statistics[lang] = {
+            'vacancies_found': page_payload['found'],
+            'vacancies_processed': processed_vacancies,
+            'average_salary': average_salary
+        }
         
     return salary_statistics
     
@@ -124,8 +125,8 @@ def get_average_salary_superjob(app_secret_key_sj, programming_languages):
         while page < pages_number:
             payload = {
                 'page': page,
-                'town': 4,
-                'catalogues': 48,
+                'town': MOSCOW_ID_SJ,
+                'catalogues': PROGRAMMING_CATALOG_ID_SJ,
                 'keyword': lang
             }  
 
@@ -134,31 +135,29 @@ def get_average_salary_superjob(app_secret_key_sj, programming_languages):
                 
             page_payload = page_response.json()  
                 
-            vacancies.append(page_payload['objects'])
-            pages_number = math.ceil(page_response.json()['total'] / 20)
+            vacancies.extend(page_payload['objects'])
+            
+            if not page_payload['more']:
+                break
             page += 1
-        
-        salary_statistics[lang] = {
-            'vacancies_found': page_response.json()['total'],
-            'vacancies_processed': 0,
-            'average_salary': 0
-        }
         
         processed_vacancies = 0
         salary_sum = 0
-        for vacancies_per_page in vacancies:
-            for vacancy in vacancies_per_page:
-                predicted_salary = predict_rub_salary_sj(vacancy)
-                
-                if predicted_salary:
-                    salary_sum += predicted_salary
-                    processed_vacancies += 1
+        for vacancy in vacancies:
+            predicted_salary = predict_rub_salary_sj(vacancy)
+            
+            if predicted_salary:
+                salary_sum += predicted_salary
+                processed_vacancies += 1
         
-        average_salary = int(salary_sum / processed_vacancies) if processed_vacancies > 0 else 0
-             
-        salary_statistics[lang]['vacancies_processed'] = processed_vacancies
-        salary_statistics[lang]['average_salary'] = average_salary
+        average_salary = int(salary_sum / processed_vacancies) if processed_vacancies else 0
         
+        salary_statistics[lang] = {
+            'vacancies_found': page_payload['total'],
+            'vacancies_processed': processed_vacancies,
+            'average_salary': average_salary
+        }
+               
     return salary_statistics
     
 
@@ -181,12 +180,12 @@ def main():
         'Go'
     ]
     
-    salary_statistics_hh_dict = get_average_salary_hh(access_token_hh, programming_languages)
-    print(create_statistics_table(salary_statistics_hh_dict, 'HeadHunter Moscow'))
+    salary_statistics_hh = get_average_salary_hh(access_token_hh, programming_languages)
+    print(create_statistics_table(salary_statistics_hh, 'HeadHunter Moscow'))
     print()
     
-    salary_statistics_superjob_dict = get_average_salary_superjob(app_secret_key_sj, programming_languages)
-    print(create_statistics_table(salary_statistics_superjob_dict, 'SuperJob Moscow'))
+    salary_statistics_superjob = get_average_salary_superjob(app_secret_key_sj, programming_languages)
+    print(create_statistics_table(salary_statistics_superjob, 'SuperJob Moscow'))
     
 
 if __name__ == '__main__':
