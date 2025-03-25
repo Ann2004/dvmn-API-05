@@ -46,12 +46,12 @@ def predict_rub_salary_sj(vacancy):
 def create_statistics_table(salary_statistics, title):
     table_data = []
     table_data.append(['Язык программирования', 'Вакансий найдено ', 'Вакансий обработано ', 'Средняя зарплата'])
-    for language in salary_statistics:
+    for language, stats in salary_statistics.items():
         raw = [
-            language, 
-            salary_statistics[language]['vacancies_found'], 
-            salary_statistics[language]['vacancies_processed'],
-            salary_statistics[language]['average_salary']
+            language,
+            stats['vacancies_found'],
+            stats['vacancies_processed'],
+            stats['average_salary']
         ]
         table_data.append(raw)
 
